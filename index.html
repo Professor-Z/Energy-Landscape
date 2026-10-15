@@ -1,0 +1,848 @@
+<!--
+  Copyright 2026 Zerubba Levi
+  This simulation is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).
+  
+  License Restrictions Summary:
+  - Attribution: You must give appropriate credit and provide a link to the license.
+  - NonCommercial: You may not use the material for commercial purposes.
+  - ShareAlike: If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
+  
+  To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Potential Energy Landscape Simulation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: Arial, sans-serif;
+    }
+    #sim-container {
+      position: relative;
+      width: 100%;
+      max-width: min(98vw, calc(98vh * (1100 / 820)));
+      aspect-ratio: 1100 / 820;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+    #simCanvas {
+      background: #ffffff;
+      touch-action: none;
+      user-select: none;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<div id="sim-container">
+  <canvas id="simCanvas" width="1100" height="820"></canvas>
+  <button id="open-info-modal" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: rgba(255,255,255,0.9); border: 1px solid #b4b4b4; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #333; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">ℹ️ About / Copyright</button>
+</div>
+
+<!-- Info / Copyright Modal Overlay -->
+<div id="info-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; display: none; justify-content: center; align-items: center; padding: 20px; font-family: Arial, sans-serif;">
+  <div style="background: #ffffff; color: #141414; border-radius: 8px; max-width: 500px; width: 100%; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column;">
+    <div style="background: #323c50; color: white; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;">
+      <span style="font-weight: bold; font-size: 16px;">About & Copyright Information</span>
+      <button id="close-info-modal" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; font-weight: bold;">&times;</button>
+    </div>
+    <div style="padding: 20px; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; gap: 12px;">
+      <div>
+        <strong>Potential Energy Landscape Simulation</strong><br>
+        Created by <strong>Zerubba Levi</strong> for organic chemistry education.
+      </div>
+      <div style="background: #f0f2f5; padding: 10px 12px; border-radius: 6px; font-size: 13px;">
+        <strong>License:</strong> Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)<br>
+        Other professors and educators are free to use, share, and adapt this simulation for non-commercial educational purposes, provided full attribution is given and modified versions share this same license.
+      </div>
+      <div>
+        <strong>Feedback & Revisions:</strong><br>
+        Found a bug or have a suggestion for improving this simulation? Reach out with suggested revisions and feedback at <a href="mailto:zelevi@cabrillo.edu" style="color: #1e82f0; font-weight: bold; text-decoration: none;">zelevi@cabrillo.edu</a>.
+      </div>
+    </div>
+    <div style="background: #f9f9f9; padding: 12px 20px; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end;">
+      <button id="modal-ok-btn" style="background: #323c50; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px;">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Modal Logic
+const infoModal = document.getElementById('info-modal');
+const openInfoModalBtn = document.getElementById('open-info-modal');
+const closeInfoModalBtn = document.getElementById('close-info-modal');
+const modalOkBtn = document.getElementById('modal-ok-btn');
+
+openInfoModalBtn.addEventListener('click', () => { infoModal.style.display = 'flex'; });
+closeInfoModalBtn.addEventListener('click', () => { infoModal.style.display = 'none'; });
+modalOkBtn.addEventListener('click', () => { infoModal.style.display = 'none'; });
+infoModal.addEventListener('click', (e) => {
+  if (e.target === infoModal) infoModal.style.display = 'none';
+});
+
+// --- Helper Math Functions ---
+function gaussianRandom(mean = 0, stdev = 1) {
+  let u = 1 - Math.random();
+  let v = Math.random();
+  let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+  return z * stdev + mean;
+}
+
+function smoothStep(x, x_a, x_b, y_a, y_b) {
+  if (x_b === x_a) return { y: y_b, dy: 0 };
+  let u = Math.max(0, Math.min(1, (x - x_a) / (x_b - x_a)));
+  let s = 0.5 * (1.0 - Math.cos(Math.PI * u));
+  let ds = 0.5 * Math.PI * Math.sin(Math.PI * u) / (x_b - x_a);
+  let y = y_a + (y_b - y_a) * s;
+  let dy = (y_b - y_a) * ds;
+  return { y, dy };
+}
+
+function getNiceTimeStep(maxTime) {
+  if (maxTime <= 5) return 1;
+  if (maxTime <= 10) return 2;
+  if (maxTime <= 25) return 5;
+  if (maxTime <= 50) return 10;
+  if (maxTime <= 100) return 20;
+  if (maxTime <= 250) return 50;
+  let step = 100;
+  while (maxTime / step > 5) step *= 2;
+  return step;
+}
+
+// --- UI Controls ---
+class BarControl {
+  constructor(x1, x2, y, color, label, min_y = 30, max_y = 760) {
+    this.x1 = x1; this.x2 = x2; this.y = y;
+    this.color = color; this.label = label;
+    this.grabbed = false; this.min_y = min_y; this.max_y = max_y;
+    this.height = 12;
+  }
+  handleEvent(type, mx, my) {
+    if (type === 'down') {
+      if (mx >= this.x1 - 15 && mx <= this.x2 + 15 && Math.abs(my - this.y) <= 18) {
+        this.grabbed = true; return true;
+      }
+    } else if (type === 'up') {
+      this.grabbed = false;
+    } else if (type === 'move' && this.grabbed) {
+      this.y = Math.max(this.min_y, Math.min(this.max_y, my));
+      return true;
+    }
+    return false;
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.fillStyle = this.grabbed ? '#50e050' : this.color;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    let w = this.x2 - this.x1, h = this.height, y = this.y - h / 2;
+    ctx.beginPath();
+    ctx.roundRect(this.x1, y, w, h, 6);
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+class PeakControl {
+  constructor(x, y, min_y = 20, max_y = 760) {
+    this.x = x; this.y = y; this.grabbed = false;
+    this.min_y = min_y; this.max_y = max_y; this.hitRadius = 25;
+  }
+  handleEvent(type, mx, my) {
+    if (type === 'down') {
+      if (Math.hypot(mx - this.x, my - this.y) <= this.hitRadius) {
+        this.grabbed = true; return true;
+      }
+    } else if (type === 'up') {
+      this.grabbed = false;
+    } else if (type === 'move' && this.grabbed) {
+      this.y = Math.max(this.min_y, Math.min(this.max_y, my));
+      return true;
+    }
+    return false;
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.fillStyle = this.grabbed ? '#50e050' : '#323c46';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 7, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+class ThermometerSlider {
+  constructor(x, y, stem_w, stem_h, max_val) {
+    this.x = x; this.y = y; this.stem_w = stem_w; this.stem_h = stem_h;
+    this.bulb_center = [x + stem_w / 2, y + stem_h + 16];
+    this.bulb_radius = 16;
+    this.max_val = max_val; this.fraction = 0.0; this.grabbed = false;
+  }
+  get val() { return this.max_val * Math.pow(this.fraction, 2); }
+  handleEvent(type, mx, my) {
+    if (type === 'down') {
+      let inStem = mx >= this.x - 10 && mx <= this.x + this.stem_w + 10 && my >= this.y && my <= this.y + this.stem_h;
+      let inBulb = Math.hypot(mx - this.bulb_center[0], my - this.bulb_center[1]) <= this.bulb_radius + 5;
+      if (inStem || inBulb) {
+        this.grabbed = true;
+        this.updateFraction(my);
+        return true;
+      }
+    } else if (type === 'up') {
+      this.grabbed = false;
+    } else if (type === 'move' && this.grabbed) {
+      this.updateFraction(my);
+      return true;
+    }
+    return false;
+  }
+  updateFraction(mouse_y) {
+    let rel_y = Math.max(0, Math.min(this.stem_h, (this.y + this.stem_h) - mouse_y));
+    this.fraction = rel_y / this.stem_h;
+  }
+  reset() { this.fraction = 0.0; }
+  draw(ctx) {
+    ctx.save();
+    ctx.fillStyle = '#ebebf0';
+    ctx.strokeStyle = '#505050';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(this.x, this.y, this.stem_w, this.stem_h, this.stem_w / 2);
+    ctx.fill(); ctx.stroke();
+
+    let fluid_h = this.fraction * this.stem_h;
+    if (fluid_h > 0) {
+      ctx.fillStyle = '#e12323';
+      ctx.beginPath();
+      ctx.roundRect(this.x + 2, this.y + this.stem_h - fluid_h, this.stem_w - 4, fluid_h + 2, 3);
+      ctx.fill();
+    }
+
+    ctx.strokeStyle = '#464646';
+    for (let i = 0; i <= 12; i++) {
+      let tick_y = (this.y + this.stem_h) - (i / 12) * this.stem_h;
+      let isMajor = (i % 4 === 0);
+      ctx.lineWidth = isMajor ? 3 : 2;
+      let tick_w = isMajor ? 9 : 6;
+      ctx.beginPath();
+      ctx.moveTo(this.x + 2, tick_y);
+      ctx.lineTo(this.x + 2 + tick_w, tick_y);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = '#e12323';
+    ctx.beginPath();
+    ctx.arc(this.bulb_center[0], this.bulb_center[1], this.bulb_radius, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+class Button {
+  constructor(x, y, w, h, text, color = '#d22d2d') {
+    this.x = x; this.y = y; this.w = w; this.h = h;
+    this.text = text; this.color = color;
+  }
+  isClicked(mx, my) {
+    return mx >= this.x && mx <= this.x + this.w && my >= this.y && my <= this.y + this.h;
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.fillStyle = this.color;
+    ctx.strokeStyle = '#fafafa';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(this.x, this.y, this.w, this.h, 6);
+    ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 13px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.text, this.x + this.w / 2, this.y + this.h / 2);
+    ctx.restore();
+  }
+}
+
+class Dropdown {
+  constructor(x, y, w, h, options, selectedIndex = 0) {
+    this.x = x; this.y = y; this.w = w; this.h = h;
+    this.options = options; this.selectedIndex = selectedIndex;
+    this.isOpen = false;
+  }
+  handleEvent(type, mx, my) {
+    if (type === 'down') {
+      if (this.isOpen) {
+        for (let i = 0; i < this.options.length; i++) {
+          let optY = this.y - (this.options.length - i) * this.h;
+          if (mx >= this.x && mx <= this.x + this.w && my >= optY && my <= optY + this.h) {
+            this.selectedIndex = i;
+            this.isOpen = false;
+            return { handled: true, changed: true, option: this.options[i] };
+          }
+        }
+        this.isOpen = false;
+        return { handled: true, changed: false, option: null };
+      } else {
+        if (mx >= this.x && mx <= this.x + this.w && my >= this.y && my <= this.y + this.h) {
+          this.isOpen = true;
+          return { handled: true, changed: false, option: null };
+        }
+      }
+    }
+    return { handled: false, changed: false, option: null };
+  }
+  draw(ctx, mx, my) {
+    ctx.save();
+    ctx.fillStyle = '#f0f2f5';
+    ctx.strokeStyle = '#505a6e';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(this.x, this.y, this.w, this.h, 5);
+    ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = '#1e1e1e';
+    ctx.font = 'bold 13px Arial';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.options[this.selectedIndex], this.x + 8, this.y + this.h / 2);
+
+    ctx.fillStyle = '#505050';
+    ctx.fillText(this.isOpen ? '▲' : '▼', this.x + this.w - 18, this.y + this.h / 2);
+
+    if (this.isOpen) {
+      for (let i = 0; i < this.options.length; i++) {
+        let optY = this.y - (this.options.length - i) * this.h;
+        let isHover = mx >= this.x && mx <= this.x + this.w && my >= optY && my <= optY + this.h;
+        ctx.fillStyle = isHover ? '#dce6f5' : '#fafafa';
+        ctx.fillRect(this.x, optY, this.w, this.h);
+        ctx.strokeStyle = '#78828c';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(this.x, optY, this.w, this.h);
+
+        ctx.fillStyle = '#141414';
+        ctx.fillText(this.options[i], this.x + 8, optY + this.h / 2);
+      }
+    }
+    ctx.restore();
+  }
+}
+
+class GraphWindow {
+  constructor(x, y, w = 480, h = 310) {
+    this.x = x; this.y = y; this.w = w; this.h = h;
+    this.visible = false; this.dragging = false; this.resizing = false;
+    this.dragOffsetX = 0; this.dragOffsetY = 0;
+    this.titleHeight = 28; this.resizeHandleSize = 16;
+    this.minW = 320; this.minH = 220;
+  }
+  handleEvent(type, mx, my) {
+    if (!this.visible) return false;
+
+    if (type === 'down') {
+      let closeX = this.x + this.w - 28, closeY = this.y + 2;
+      if (mx >= closeX && mx <= closeX + 26 && my >= closeY && my <= closeY + 26) {
+        this.visible = false; return true;
+      }
+      let rx = this.x + this.w - this.resizeHandleSize, ry = this.y + this.h - this.resizeHandleSize;
+      if (mx >= rx && mx <= this.x + this.w && my >= ry && my <= this.y + this.h) {
+        this.resizing = true; return true;
+      }
+      if (mx >= this.x && mx <= this.x + this.w && my >= this.y && my <= this.y + this.titleHeight) {
+        this.dragging = true;
+        this.dragOffsetX = mx - this.x; this.dragOffsetY = my - this.y;
+        return true;
+      }
+      if (mx >= this.x && mx <= this.x + this.w && my >= this.y && my <= this.y + this.h) return true;
+    } else if (type === 'up') {
+      this.dragging = false; this.resizing = false;
+    } else if (type === 'move') {
+      if (this.dragging) {
+        this.x = mx - this.dragOffsetX; this.y = my - this.dragOffsetY;
+        return true;
+      } else if (this.resizing) {
+        this.w = Math.max(this.minW, mx - this.x);
+        this.h = Math.max(this.minH, my - this.y);
+        return true;
+      }
+    }
+    return false;
+  }
+  draw(ctx, history, showGreen = false) {
+    if (!this.visible) return;
+    ctx.save();
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.fillRect(this.x + 5, this.y + 5, this.w, this.h);
+    ctx.fillStyle = '#f5f5fa';
+    ctx.strokeStyle = '#646e82';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(this.x, this.y, this.w, this.h, 6);
+    ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = '#323c50';
+    ctx.beginPath();
+    ctx.roundRect(this.x, this.y, this.w, this.titleHeight, [6, 6, 0, 0]);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 13px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PERCENT COMPOSITION vs. TIME', this.x + this.w / 2, this.y + this.titleHeight / 2);
+
+    ctx.fillStyle = '#d23232';
+    ctx.beginPath();
+    ctx.roundRect(this.x + this.w - 25, this.y + 3, 22, 22, 4);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 15px Arial';
+    ctx.fillText('×', this.x + this.w - 14, this.y + 14);
+
+    let padLeft = 65, padRight = 25, padTop = this.titleHeight + 18, padBottom = 48;
+    let plotX = this.x + padLeft, plotY = this.y + padTop;
+    let plotW = this.w - (padLeft + padRight), plotH = this.h - (padTop + padBottom);
+
+    if (plotW > 20 && plotH > 20) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(plotX, plotY, plotW, plotH);
+      ctx.strokeStyle = '#b4b4b4';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(plotX, plotY, plotW, plotH);
+
+      let rawMaxT = history.length > 0 ? history[history.length - 1][0] : 1.0;
+      let stepT = getNiceTimeStep(rawMaxT);
+      let maxT = Math.max(stepT * 4, Math.ceil(rawMaxT / stepT) * stepT);
+
+      let maxY = 10.0;
+      for (let h of history) {
+        if (h[1] > maxY) maxY = h[1];
+        if (showGreen && h[2] > maxY) maxY = h[2];
+        if (h[3] > maxY) maxY = h[3];
+      }
+      maxY = Math.min(100.0, Math.max(10.0, Math.ceil(maxY / 10.0) * 10.0));
+
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#3c3c3c';
+      for (let i = 0; i <= 4; i++) {
+        let yVal = (maxY / 4) * i;
+        let py = plotY + plotH - (i / 4) * plotH;
+        ctx.strokeStyle = '#ebebeb';
+        ctx.beginPath(); ctx.moveTo(plotX, py); ctx.lineTo(plotX + plotW, py); ctx.stroke();
+        ctx.fillText(`${Math.round(yVal)}%`, plotX - 6, py + 4);
+      }
+
+      ctx.textAlign = 'center';
+      for (let tVal = 0; tVal <= maxT; tVal += stepT) {
+        let px = plotX + (tVal / maxT) * plotW;
+        if (px >= plotX && px <= plotX + plotW) {
+          ctx.strokeStyle = '#ebebeb';
+          ctx.beginPath(); ctx.moveTo(px, plotY); ctx.lineTo(px, plotY + plotH); ctx.stroke();
+          ctx.fillText(`${tVal}s`, px, plotY + plotH + 16);
+        }
+      }
+
+      let smoothWindow = 25;
+      let smoothed = [];
+      for (let i = 0; i < history.length; i++) {
+        let start = Math.max(0, i - smoothWindow + 1);
+        let sub = history.slice(start, i + 1);
+        let avgA = sub.reduce((acc, v) => acc + v[1], 0) / sub.length;
+        let avgG = sub.reduce((acc, v) => acc + v[2], 0) / sub.length;
+        let avgB = sub.reduce((acc, v) => acc + v[3], 0) / sub.length;
+        smoothed.push([history[i][0], avgA, avgG, avgB]);
+      }
+
+      const drawLine = (color, getValIndex) => {
+        if (smoothed.length < 2) return;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        for (let i = 0; i < smoothed.length; i++) {
+          let px = plotX + (smoothed[i][0] / maxT) * plotW;
+          let py = plotY + plotH - (smoothed[i][getValIndex] / maxY) * plotH;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+
+        let last = smoothed[smoothed.length - 1];
+        let ex = plotX + (last[0] / maxT) * plotW;
+        let ey = plotY + plotH - (last[getValIndex] / maxY) * plotH;
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(ex, ey, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+      };
+
+      drawLine('#1e82f0', 1);
+      if (showGreen) drawLine('#1eb432', 2);
+      drawLine('#f08214', 3);
+    }
+
+    ctx.restore();
+  }
+}
+
+// --- Landscape & Particles ---
+class PotentialLandscape {
+  constructor(w, h) { this.update(w, h); }
+  update(w, h) {
+    this.width = w; this.height = h;
+    this.x_ts1_peak = w * 0.3;
+    this.x_ts2_peak = w * 0.7;
+  }
+  getHeightAndSlope(x, y_p1, y_ts1, y_r, y_ts2, y_p2) {
+    let x_p1_end = this.width * 0.1636;
+    let x_middle = this.width * 0.409;
+    let x_basin_end = this.width * 0.590;
+    let x_p2_start = this.width * 0.818;
+
+    if (x <= x_p1_end) return { y: y_p1, dy: 0 };
+    if (x <= this.x_ts1_peak) return smoothStep(x, x_p1_end, this.x_ts1_peak, y_p1, y_ts1);
+    if (x <= x_middle) return smoothStep(x, this.x_ts1_peak, x_middle, y_ts1, y_r);
+    if (x <= x_basin_end) return { y: y_r, dy: 0 };
+    if (x <= this.x_ts2_peak) return smoothStep(x, x_basin_end, this.x_ts2_peak, y_r, y_ts2);
+    if (x <= x_p2_start) return smoothStep(x, this.x_ts2_peak, x_p2_start, y_ts2, y_p2);
+    return { y: y_p2, dy: 0 };
+  }
+}
+
+class Particle {
+  constructor(x, y, radius = 3.28) {
+    this.x = x; this.y = y; this.vx = 0; this.vy = 0;
+    this.radius = radius; this.state = 'reactant';
+  }
+  update(dt, energyVal, maxEnergy, landscape, y_p1, y_ts1, y_r, y_ts2, y_p2) {
+    let tempRatio = maxEnergy > 0 ? energyVal / maxEnergy : 0;
+    let gravity = 900.0 - tempRatio * 550.0;
+    let gamma = 0.65, e = 0.52;
+    let sigma = Math.sqrt(energyVal * 16800.0);
+
+    this.vx += (-gamma * this.vx + gaussianRandom(0, 1) * sigma) * dt;
+    this.vy += (gravity - gamma * this.vy + gaussianRandom(0, 1) * sigma) * dt;
+
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    if (this.x - this.radius < 10) { this.x = 10 + this.radius; this.vx = Math.abs(this.vx) * e; }
+    else if (this.x + this.radius > landscape.width - 10) { this.x = landscape.width - 10 - this.radius; this.vx = -Math.abs(this.vx) * e; }
+
+    if (this.y - this.radius < 10) { this.y = 10 + this.radius; this.vy = Math.abs(this.vy) * e; }
+
+    let floor = landscape.getHeightAndSlope(this.x, y_p1, y_ts1, y_r, y_ts2, y_p2);
+    if (this.y + this.radius > floor.y) {
+      let nx = -floor.dy, ny = 1.0;
+      let norm = Math.hypot(nx, ny);
+      if (norm > 0) { nx /= norm; ny /= norm; }
+
+      let penetration = (this.y + this.radius) - floor.y;
+      this.x -= penetration * nx;
+      this.y -= penetration * ny;
+
+      let v_dot_n = this.vx * nx + this.vy * ny;
+      if (v_dot_n > 0) {
+        this.vx -= (1 + e) * v_dot_n * nx;
+        this.vy -= (1 + e) * v_dot_n * ny;
+        let kickMag = Math.sqrt(energyVal) * 31.0;
+        this.vx += gaussianRandom(0, 1) * kickMag;
+        this.vy -= Math.abs(gaussianRandom(0, 1)) * kickMag;
+      }
+    }
+
+    if (this.x < landscape.x_ts1_peak) this.state = 'product_left';
+    else if (this.x > landscape.x_ts2_peak) this.state = 'product_right';
+    else this.state = 'reactant';
+  }
+  draw(ctx) {
+    ctx.fillStyle = this.state === 'product_left' ? '#1e82f0' : (this.state === 'product_right' ? '#f08214' : '#1eb432');
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function resolveParticleCollisions(particles) {
+  let cellSize = 7.0;
+  let grid = new Map();
+  for (let p of particles) {
+    let key = `${Math.floor(p.x / cellSize)},${Math.floor(p.y / cellSize)}`;
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push(p);
+  }
+
+  for (let [key, cellParticles] of grid.entries()) {
+    let [cx, cy] = key.split(',').map(Number);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        let neighborKey = `${cx + dx},${cy + dy}`;
+        if (grid.has(neighborKey)) {
+          for (let p1 of cellParticles) {
+            for (let p2 of grid.get(neighborKey)) {
+              if (p1 === p2) continue;
+              let dx_p = p2.x - p1.x, dy_p = p2.y - p1.y;
+              let distSq = dx_p * dx_p + dy_p * dy_p;
+              let minDist = p1.radius + p2.radius;
+              if (distSq > 0 && distSq < minDist * minDist) {
+                let dist = Math.sqrt(distSq);
+                let nx = dx_p / dist, ny = dy_p / dist;
+                let overlap = minDist - dist;
+                p1.x -= 0.5 * overlap * nx; p1.y -= 0.5 * overlap * ny;
+                p2.x += 0.5 * overlap * nx; p2.y += 0.5 * overlap * ny;
+                let kx = p1.vx - p2.vx, ky = p1.vy - p2.vy;
+                let pImp = nx * kx + ny * ky;
+                if (pImp > 0) {
+                  p1.vx -= pImp * nx; p1.vy -= pImp * ny;
+                  p2.vx += pImp * nx; p2.vy += pImp * ny;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// --- Main Application Controller ---
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+const WIDTH = 1100, HEIGHT = 820;
+
+const landscape = new PotentialLandscape(WIDTH, HEIGHT);
+const bar_p1 = new BarControl(WIDTH * 0.054, WIDTH * 0.1636, HEIGHT * 0.512, '#1e82f0', 'A Bar');
+const bar_react = new BarControl(WIDTH * 0.445, WIDTH * 0.554, HEIGHT * 0.414, '#1eb432', 'Reactants Bar');
+const bar_p2 = new BarControl(WIDTH * 0.836, WIDTH * 0.945, HEIGHT * 0.951, '#f08214', 'B Bar');
+const peak_ts1 = new PeakControl(landscape.x_ts1_peak, HEIGHT * 0.268);
+const peak_ts2 = new PeakControl(landscape.x_ts2_peak, HEIGHT * 0.134);
+
+const bars = [bar_p1, bar_react, bar_p2];
+const peaks = [peak_ts1, peak_ts2];
+const modes = [
+  'Thermodynamic vs Kinetic Product',
+  'Intermediate Stability & Reaction Rates',
+  '2-Step Mechanism'
+];
+const dropdown = new Dropdown(65, HEIGHT - 45, 275, 34, modes, 0);
+const s_energy = new ThermometerSlider(26, 80, 16, 640, 250);
+const graph_window = new GraphWindow((WIDTH - 480) / 2, HEIGHT - 380);
+
+const TOTAL_PARTICLES = 1000;
+let particles = [];
+
+function spawnParticles(modeName) {
+  particles = [];
+  let targetBar = (modeName === '2-Step Mechanism') ? bar_p1 : bar_react;
+  for (let i = 0; i < TOTAL_PARTICLES; i++) {
+    let x = targetBar.x1 + 5 + Math.random() * (targetBar.x2 - targetBar.x1 - 10);
+    let y = targetBar.y - 50 + Math.random() * 40;
+    particles.push(new Particle(x, y));
+  }
+}
+
+function applyModeLandscape(modeName, h) {
+  if (modeName === 'Thermodynamic vs Kinetic Product') {
+    bar_p1.y = h * 0.512; bar_react.y = h * 0.414; bar_p2.y = h * 0.951;
+    peak_ts1.y = h * 0.268; peak_ts2.y = h * 0.134;
+  } else if (modeName === 'Intermediate Stability & Reaction Rates') {
+    bar_p1.y = h * 0.700; bar_react.y = h * 0.950; bar_p2.y = h * 0.380;
+    peak_ts1.y = h * 0.520; peak_ts2.y = h * 0.120;
+  } else if (modeName === '2-Step Mechanism') {
+    bar_p1.y = h * 0.700; bar_react.y = h * 0.400; bar_p2.y = h * 0.980;
+    peak_ts1.y = h * 0.120; peak_ts2.y = h * 0.300;
+  }
+}
+
+spawnParticles(modes[0]);
+
+let paused = false;
+let simTime = 0.0, dataSampleTimer = 0.0;
+let graphDataHistory = [[0.0, 0.0, 100.0, 0.0]];
+let lastTime = performance.now();
+let lastMx = 0, lastMy = 0;
+
+// --- Event Handling ---
+function getMousePos(e) {
+  let rect = canvas.getBoundingClientRect();
+  return { 
+    mx: (e.clientX - rect.left) * (canvas.width / rect.width), 
+    my: (e.clientY - rect.top) * (canvas.height / rect.height) 
+  };
+}
+
+function handlePointer(type, e) {
+  let { mx, my } = getMousePos(e);
+  lastMx = mx; lastMy = my;
+  let curMode = dropdown.options[dropdown.selectedIndex];
+
+  // 1. Dropdown UI Interception
+  let ddRes = dropdown.handleEvent(type, mx, my);
+  if (ddRes.handled) {
+    if (ddRes.changed) {
+      applyModeLandscape(ddRes.option, HEIGHT);
+      spawnParticles(ddRes.option);
+      s_energy.reset();
+      simTime = 0.0; dataSampleTimer = 0.0;
+      let initB = (ddRes.option === '2-Step Mechanism') ? 100.0 : 0.0;
+      let initG = (ddRes.option === '2-Step Mechanism') ? 0.0 : 100.0;
+      graphDataHistory = [[0.0, initB, initG, 0.0]];
+    }
+    return;
+  }
+
+  // 2. Graph Window Interception
+  if (graph_window.handleEvent(type, mx, my)) return;
+
+  // 3. Simulation Draggables & Buttons
+  s_energy.handleEvent(type, mx, my);
+  for (let b of bars) b.handleEvent(type, mx, my);
+  for (let pk of peaks) pk.handleEvent(type, mx, my);
+
+  if (type === 'down') {
+    let btnY = HEIGHT - 45, btnW = 100, gap = 15;
+    let startX = (WIDTH - (3 * btnW + 2 * gap)) / 2;
+    let pauseBtn = new Button(startX, btnY, btnW, 34);
+    let resetBtn = new Button(startX + btnW + gap, btnY, btnW, 34);
+    let graphBtn = new Button(startX + 2 * (btnW + gap), btnY, btnW, 34);
+
+    if (pauseBtn.isClicked(mx, my)) paused = !paused;
+    if (resetBtn.isClicked(mx, my)) {
+      spawnParticles(curMode);
+      s_energy.reset();
+      simTime = 0.0; dataSampleTimer = 0.0;
+      let initB = (curMode === '2-Step Mechanism') ? 100.0 : 0.0;
+      let initG = (curMode === '2-Step Mechanism') ? 0.0 : 100.0;
+      graphDataHistory = [[0.0, initB, initG, 0.0]];
+    }
+    if (graphBtn.isClicked(mx, my)) graph_window.visible = !graph_window.visible;
+  }
+}
+
+canvas.addEventListener('mousedown', e => handlePointer('down', e));
+canvas.addEventListener('mousemove', e => handlePointer('move', e));
+window.addEventListener('mouseup', e => handlePointer('up', e));
+
+canvas.addEventListener('touchstart', e => { handlePointer('down', e.touches[0]); e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchmove', e => { handlePointer('move', e.touches[0]); e.preventDefault(); }, { passive: false });
+window.addEventListener('touchend', e => { handlePointer('up', e); });
+
+// --- Main Loop ---
+function loop(now) {
+  let dt = Math.min((now - lastTime) / 1000.0, 0.05);
+  lastTime = now;
+  let curMode = dropdown.options[dropdown.selectedIndex];
+
+  // Constrain Peak & Bar Energies so peaks stay above basins
+  peak_ts1.max_y = Math.min(bar_p1.y, bar_react.y);
+  peak_ts2.max_y = Math.min(bar_react.y, bar_p2.y);
+  peak_ts1.y = Math.min(peak_ts1.y, peak_ts1.max_y);
+  peak_ts2.y = Math.min(peak_ts2.y, peak_ts2.max_y);
+
+  bar_p1.min_y = peak_ts1.y;
+  bar_p2.min_y = peak_ts2.y;
+  bar_react.min_y = Math.max(peak_ts1.y, peak_ts2.y);
+  bar_p1.y = Math.max(bar_p1.y, bar_p1.min_y);
+  bar_p2.y = Math.max(bar_p2.y, bar_p2.min_y);
+  bar_react.y = Math.max(bar_react.y, bar_react.min_y);
+
+  if (!paused) {
+    simTime += dt;
+    let subSteps = 4, subDt = dt / subSteps;
+    for (let step = 0; step < subSteps; step++) {
+      for (let p of particles) {
+        p.update(subDt, s_energy.val, s_energy.max_val, landscape, bar_p1.y, peak_ts1.y, bar_react.y, peak_ts2.y, bar_p2.y);
+      }
+      resolveParticleCollisions(particles);
+    }
+
+    dataSampleTimer += dt;
+    if (dataSampleTimer >= 0.1) {
+      dataSampleTimer -= 0.1;
+      let nBlue = 0, nGreen = 0, nOrange = 0;
+      for (let p of particles) {
+        if (p.state === 'product_left') nBlue++;
+        else if (p.state === 'product_right') nOrange++;
+        else nGreen++;
+      }
+      graphDataHistory.push([
+        simTime,
+        (nBlue / TOTAL_PARTICLES) * 100.0,
+        (nGreen / TOTAL_PARTICLES) * 100.0,
+        (nOrange / TOTAL_PARTICLES) * 100.0
+      ]);
+    }
+  }
+
+  ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  ctx.moveTo(0, HEIGHT);
+  for (let x = 0; x <= WIDTH; x += 2) {
+    let floor = landscape.getHeightAndSlope(x, bar_p1.y, peak_ts1.y, bar_react.y, peak_ts2.y, bar_p2.y);
+    ctx.lineTo(x, floor.y);
+  }
+  ctx.lineTo(WIDTH, HEIGHT);
+  ctx.closePath();
+  ctx.fill();
+
+  let nBlue = 0, nOrange = 0;
+  for (let p of particles) {
+    p.draw(ctx);
+    if (p.state === 'product_left') nBlue++;
+    if (p.state === 'product_right') nOrange++;
+  }
+
+  for (let pk of peaks) pk.draw(ctx);
+  for (let b of bars) b.draw(ctx);
+  s_energy.draw(ctx);
+
+  let btnY = HEIGHT - 45, btnW = 100, gap = 15;
+  let startX = (WIDTH - (3 * btnW + 2 * gap)) / 2;
+  new Button(startX, btnY, btnW, 34, paused ? 'PLAY' : 'PAUSE', paused ? '#28a03c' : '#d22d2d').draw(ctx);
+  new Button(startX + btnW + gap, btnY, btnW, 34, 'RESET', '#8c32aa').draw(ctx);
+  new Button(startX + 2 * (btnW + gap), btnY, btnW, 34, 'GRAPH', '#1e8cb4').draw(ctx);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  if (curMode === '2-Step Mechanism') {
+    ctx.font = 'bold 42px Arial';
+    ctx.fillStyle = '#1e64dc'; ctx.fillText('REACTANT', (bar_p1.x1 + bar_p1.x2) / 2, 20);
+    ctx.fillStyle = '#1eb432'; ctx.fillText('INTERMEDIATE', (bar_react.x1 + bar_react.x2) / 2, 20);
+    ctx.fillStyle = '#f08214'; ctx.fillText('PRODUCT', (bar_p2.x1 + bar_p2.x2) / 2, 20);
+  } else {
+    ctx.font = 'bold 52px Arial';
+    let pctA = Math.round((nBlue / TOTAL_PARTICLES) * 100);
+    let pctB = Math.round((nOrange / TOTAL_PARTICLES) * 100);
+    ctx.fillStyle = '#1e64dc'; ctx.fillText(`A: ${pctA}%`, (bar_p1.x1 + bar_p1.x2) / 2, 20);
+    ctx.fillStyle = '#f08214'; ctx.fillText(`B: ${pctB}%`, (bar_p2.x1 + bar_p2.x2) / 2, 20);
+  }
+
+  graph_window.draw(ctx, graphDataHistory, curMode === '2-Step Mechanism');
+  dropdown.draw(ctx, lastMx, lastMy);
+
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
