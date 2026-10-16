@@ -1,13 +1,13 @@
 <!--
   Copyright 2026 Zerubba Levi
-  This simulation is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).
+  This simulation is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).[cite: 1]
   
   License Restrictions Summary:
-  - Attribution: You must give appropriate credit and provide a link to the license.
-  - NonCommercial: You may not use the material for commercial purposes.
-  - ShareAlike: If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
+  - Attribution: You must give appropriate credit and provide a link to the license.[cite: 1]
+  - NonCommercial: You may not use the material for commercial purposes.[cite: 1]
+  - ShareAlike: If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.[cite: 1]
   
-  To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/
+  To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/[cite: 1]
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -64,15 +64,15 @@
     <div style="padding: 20px; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; gap: 12px;">
       <div>
         <strong>Potential Energy Landscape Simulation</strong><br>
-        Created by <strong>Zerubba Levi</strong> for organic chemistry education.
+        Created by <strong>Zerubba Levi</strong> for organic chemistry education[cite: 1].
       </div>
       <div style="background: #f0f2f5; padding: 10px 12px; border-radius: 6px; font-size: 13px;">
-        <strong>License:</strong> Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)<br>
-        Other professors and educators are free to use, share, and adapt this simulation for non-commercial educational purposes, provided full attribution is given and modified versions share this same license.
+        <strong>License:</strong> Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)[cite: 1]<br>
+        Other professors and educators are free to use, share, and adapt this simulation for non-commercial educational purposes, provided full attribution is given and modified versions share this same license[cite: 1].
       </div>
       <div>
         <strong>Feedback & Revisions:</strong><br>
-        Found a bug or have a suggestion for improving this simulation? Reach out with suggested revisions and feedback at <a href="mailto:zelevi@cabrillo.edu" style="color: #1e82f0; font-weight: bold; text-decoration: none;">zelevi@cabrillo.edu</a>.
+        Found a bug or have a suggestion for improving this simulation? Reach out with suggested revisions and feedback at <a href="mailto:zelevi@cabrillo.edu" style="color: #1e82f0; font-weight: bold; text-decoration: none;">zelevi@cabrillo.edu</a>[cite: 1].
       </div>
     </div>
     <div style="background: #f9f9f9; padding: 12px 20px; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end;">
@@ -252,6 +252,143 @@ class ThermometerSlider {
     ctx.beginPath();
     ctx.arc(this.bulb_center[0], this.bulb_center[1], this.bulb_radius, 0, Math.PI * 2);
     ctx.fill(); ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
+class CollapsibleParticleSlider {
+  constructor(canvasWidth, y, stem_w, stem_h, min_val = 100, max_val = 2000, default_val = 1000) {
+    this.canvasWidth = canvasWidth;
+    this.y = y; this.stem_w = stem_w; this.stem_h = stem_h;
+    this.min_val = min_val; this.max_val = max_val;
+    this.fraction = (default_val - min_val) / (max_val - min_val);
+    this.grabbed = false;
+    this.handle_radius = 12;
+    
+    this.animProgress = 0.0;
+    this.tabWidth = 32;
+    this.panelWidth = 55;
+    this.collapsedX = canvasWidth - 12;
+    this.expandedX = canvasWidth - this.panelWidth - 10;
+  }
+  get val() {
+    return Math.round(this.min_val + this.fraction * (this.max_val - this.min_val));
+  }
+  
+  isHovered(mx, my) {
+    let currentX = this.collapsedX - (this.collapsedX - this.expandedX) * this.animProgress;
+    let currentW = this.tabWidth + (this.panelWidth - this.tabWidth) * this.animProgress;
+    return mx >= currentX - 10 && mx <= currentX + currentW + 10 && my >= this.y - 10 && my <= this.y + this.stem_h + 35;
+  }
+
+  handleEvent(type, mx, my) {
+    let currentX = this.collapsedX - (this.collapsedX - this.expandedX) * this.animProgress;
+    let handle_y = (this.y + this.stem_h) - this.fraction * this.stem_h;
+    let sliderX = currentX + 16;
+
+    if (type === 'down') {
+      let inStem = mx >= sliderX - 10 && mx <= sliderX + this.stem_w + 10 && my >= this.y && my <= this.y + this.stem_h;
+      let inHandle = Math.hypot(mx - (sliderX + this.stem_w / 2), my - handle_y) <= this.handle_radius + 5;
+      let inTab = this.isHovered(mx, my);
+
+      if (inStem || inHandle || inTab) {
+        if (inStem || inHandle || this.animProgress > 0.5) {
+          if (inStem || inHandle) {
+            this.grabbed = true;
+            this.updateFraction(my);
+            return { handled: true, changed: true };
+          }
+        }
+      }
+    } else if (type === 'up') {
+      if (this.grabbed) {
+        this.grabbed = false;
+        return { handled: true, changed: true };
+      }
+      this.grabbed = false;
+    } else if (type === 'move' && this.grabbed) {
+      this.updateFraction(my);
+      return { handled: true, changed: true };
+    }
+    return { handled: false, changed: false };
+  }
+
+  updateFraction(mouse_y) {
+    let rel_y = Math.max(0, Math.min(this.stem_h, (this.y + this.stem_h) - mouse_y));
+    this.fraction = rel_y / this.stem_h;
+  }
+
+  draw(ctx, mx, my, isBlue = false) {
+    let hovered = this.isHovered(mx, my) || this.grabbed;
+    let targetProgress = hovered ? 1.0 : 0.0;
+    this.animProgress += (targetProgress - this.animProgress) * 0.15;
+
+    let currentX = this.collapsedX - (this.collapsedX - this.expandedX) * this.animProgress;
+    let sliderX = currentX + 16;
+    let sliderColor = isBlue ? '#1e64dc' : '#28a03c';
+
+    ctx.save();
+    
+    if (this.animProgress > 0.05) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${this.animProgress * 0.95})`;
+      ctx.strokeStyle = `rgba(180, 180, 180, ${this.animProgress})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(currentX, this.y - 8, this.panelWidth, this.stem_h + 38, 8);
+      ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = '#ebebf0';
+      ctx.strokeStyle = '#505050';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(sliderX, this.y, this.stem_w, this.stem_h, this.stem_w / 2);
+      ctx.fill(); ctx.stroke();
+
+      let fluid_h = this.fraction * this.stem_h;
+      if (fluid_h > 0) {
+        ctx.fillStyle = sliderColor;
+        ctx.beginPath();
+        ctx.roundRect(sliderX + 2, (this.y + this.stem_h) - fluid_h, this.stem_w - 4, fluid_h, 3);
+        ctx.fill();
+      }
+
+      let handle_y = (this.y + this.stem_h) - this.fraction * this.stem_h;
+      ctx.fillStyle = sliderColor;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sliderX + this.stem_w / 2, handle_y, this.handle_radius, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = '#333333';
+      ctx.font = 'bold 11px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${this.val}`, sliderX + this.stem_w / 2, this.y + this.stem_h + 16);
+    }
+
+    let tabAlpha = 1.0 - this.animProgress;
+    if (tabAlpha > 0.05) {
+      ctx.fillStyle = '#464646';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(this.collapsedX - 26, this.y + 160, 30, 150, [10, 0, 0, 10]);
+      ctx.globalAlpha = tabAlpha;
+      ctx.fill(); ctx.stroke();
+
+      // Font size matched to dropdown font (15px bold Arial)
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 15px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.save();
+      ctx.translate(this.collapsedX - 11, this.y + 235);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('# of Particles', 0, 0);
+      ctx.restore();
+    }
+
     ctx.restore();
   }
 }
@@ -316,17 +453,18 @@ class Dropdown {
     ctx.strokeStyle = '#505a6e';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(this.x, this.y, this.w, this.h, 5);
+    ctx.roundRect(this.x, this.y, this.w, this.h, 6);
     ctx.fill(); ctx.stroke();
 
     ctx.fillStyle = '#1e1e1e';
-    ctx.font = 'bold 13px Arial';
+    ctx.font = 'bold 15px Arial';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(this.options[this.selectedIndex], this.x + 8, this.y + this.h / 2);
+    ctx.fillText(this.options[this.selectedIndex], this.x + 12, this.y + this.h / 2);
 
     ctx.fillStyle = '#505050';
-    ctx.fillText(this.isOpen ? '▲' : '▼', this.x + this.w - 18, this.y + this.h / 2);
+    ctx.font = 'bold 14px Arial';
+    ctx.fillText(this.isOpen ? '▲' : '▼', this.x + this.w - 22, this.y + this.h / 2);
 
     if (this.isOpen) {
       for (let i = 0; i < this.options.length; i++) {
@@ -339,7 +477,8 @@ class Dropdown {
         ctx.strokeRect(this.x, optY, this.w, this.h);
 
         ctx.fillStyle = '#141414';
-        ctx.fillText(this.options[i], this.x + 8, optY + this.h / 2);
+        ctx.font = 'bold 15px Arial';
+        ctx.fillText(this.options[i], this.x + 12, optY + this.h / 2);
       }
     }
     ctx.restore();
@@ -527,15 +666,19 @@ class PotentialLandscape {
 }
 
 class Particle {
-  constructor(x, y, radius = 3.28) {
-    this.x = x; this.y = y; this.vx = 0; this.vy = 0;
-    this.radius = radius; this.state = 'reactant';
+  constructor(x, y, initialEnergy = 0, radius = 3.28) {
+    this.x = x; this.y = y; this.radius = radius; this.state = 'reactant';
+    
+    let thermalSpeed = Math.sqrt(Math.max(1.0, initialEnergy)) * 10.0;
+    this.vx = gaussianRandom(0, thermalSpeed);
+    this.vy = gaussianRandom(0, thermalSpeed);
   }
   update(dt, energyVal, maxEnergy, landscape, y_p1, y_ts1, y_r, y_ts2, y_p2) {
     let tempRatio = maxEnergy > 0 ? energyVal / maxEnergy : 0;
-    let gravity = 900.0 - tempRatio * 550.0;
+    let gravity = 900.0 - tempRatio * 350.0;
     let gamma = 0.65, e = 0.52;
-    let sigma = Math.sqrt(energyVal * 16800.0);
+    
+    let sigma = Math.sqrt(Math.max(0.1, energyVal) * 4500.0);
 
     this.vx += (-gamma * this.vx + gaussianRandom(0, 1) * sigma) * dt;
     this.vy += (gravity - gamma * this.vy + gaussianRandom(0, 1) * sigma) * dt;
@@ -562,7 +705,8 @@ class Particle {
       if (v_dot_n > 0) {
         this.vx -= (1 + e) * v_dot_n * nx;
         this.vy -= (1 + e) * v_dot_n * ny;
-        let kickMag = Math.sqrt(energyVal) * 31.0;
+        
+        let kickMag = Math.sqrt(Math.max(0.1, energyVal)) * 14.0;
         this.vx += gaussianRandom(0, 1) * kickMag;
         this.vy -= Math.abs(gaussianRandom(0, 1)) * kickMag;
       }
@@ -641,20 +785,23 @@ const modes = [
   'Intermediate Stability & Reaction Rates',
   '2-Step Mechanism'
 ];
-const dropdown = new Dropdown(65, HEIGHT - 45, 275, 34, modes, 0);
-const s_energy = new ThermometerSlider(26, 80, 16, 640, 250);
+const dropdown = new Dropdown(65, HEIGHT - 52, 310, 40, modes, 0);
+
+const s_energy = new ThermometerSlider(26, 80, 16, 640, 337.5);
+const s_particles = new CollapsibleParticleSlider(WIDTH, 80, 16, 640, 100, 2000, 1000);
+
 const graph_window = new GraphWindow((WIDTH - 480) / 2, HEIGHT - 380);
 
-const TOTAL_PARTICLES = 1000;
 let particles = [];
 
 function spawnParticles(modeName) {
   particles = [];
+  let totalCount = s_particles.val;
   let targetBar = (modeName === '2-Step Mechanism') ? bar_p1 : bar_react;
-  for (let i = 0; i < TOTAL_PARTICLES; i++) {
+  for (let i = 0; i < totalCount; i++) {
     let x = targetBar.x1 + 5 + Math.random() * (targetBar.x2 - targetBar.x1 - 10);
     let y = targetBar.y - 50 + Math.random() * 40;
-    particles.push(new Particle(x, y));
+    particles.push(new Particle(x, y, s_energy.val));
   }
 }
 
@@ -711,13 +858,25 @@ function handlePointer(type, e) {
   // 2. Graph Window Interception
   if (graph_window.handleEvent(type, mx, my)) return;
 
-  // 3. Simulation Draggables & Buttons
+  // 3. Simulation Draggables & Sliders
   s_energy.handleEvent(type, mx, my);
+  
+  let oldPartVal = s_particles.val;
+  let pRes = s_particles.handleEvent(type, mx, my);
+  if (pRes.handled && pRes.changed && s_particles.val !== oldPartVal) {
+    spawnParticles(curMode);
+    s_energy.reset();
+    simTime = 0.0; dataSampleTimer = 0.0;
+    let initB = (curMode === '2-Step Mechanism') ? 100.0 : 0.0;
+    let initG = (curMode === '2-Step Mechanism') ? 0.0 : 100.0;
+    graphDataHistory = [[0.0, initB, initG, 0.0]];
+  }
+
   for (let b of bars) b.handleEvent(type, mx, my);
   for (let pk of peaks) pk.handleEvent(type, mx, my);
 
   if (type === 'down') {
-    let btnY = HEIGHT - 45, btnW = 100, gap = 15;
+    let btnY = HEIGHT - 48, btnW = 100, gap = 15;
     let startX = (WIDTH - (3 * btnW + 2 * gap)) / 2;
     let pauseBtn = new Button(startX, btnY, btnW, 34);
     let resetBtn = new Button(startX + btnW + gap, btnY, btnW, 34);
@@ -777,6 +936,7 @@ function loop(now) {
     if (dataSampleTimer >= 0.1) {
       dataSampleTimer -= 0.1;
       let nBlue = 0, nGreen = 0, nOrange = 0;
+      let totalCount = particles.length;
       for (let p of particles) {
         if (p.state === 'product_left') nBlue++;
         else if (p.state === 'product_right') nOrange++;
@@ -784,9 +944,9 @@ function loop(now) {
       }
       graphDataHistory.push([
         simTime,
-        (nBlue / TOTAL_PARTICLES) * 100.0,
-        (nGreen / TOTAL_PARTICLES) * 100.0,
-        (nOrange / TOTAL_PARTICLES) * 100.0
+        (nBlue / totalCount) * 100.0,
+        (nGreen / totalCount) * 100.0,
+        (nOrange / totalCount) * 100.0
       ]);
     }
   }
@@ -805,6 +965,7 @@ function loop(now) {
   ctx.fill();
 
   let nBlue = 0, nOrange = 0;
+  let totalCount = particles.length;
   for (let p of particles) {
     p.draw(ctx);
     if (p.state === 'product_left') nBlue++;
@@ -814,8 +975,9 @@ function loop(now) {
   for (let pk of peaks) pk.draw(ctx);
   for (let b of bars) b.draw(ctx);
   s_energy.draw(ctx);
+  s_particles.draw(ctx, lastMx, lastMy, curMode === '2-Step Mechanism');
 
-  let btnY = HEIGHT - 45, btnW = 100, gap = 15;
+  let btnY = HEIGHT - 48, btnW = 100, gap = 15;
   let startX = (WIDTH - (3 * btnW + 2 * gap)) / 2;
   new Button(startX, btnY, btnW, 34, paused ? 'PLAY' : 'PAUSE', paused ? '#28a03c' : '#d22d2d').draw(ctx);
   new Button(startX + btnW + gap, btnY, btnW, 34, 'RESET', '#8c32aa').draw(ctx);
@@ -830,8 +992,8 @@ function loop(now) {
     ctx.fillStyle = '#f08214'; ctx.fillText('PRODUCT', (bar_p2.x1 + bar_p2.x2) / 2, 20);
   } else {
     ctx.font = 'bold 52px Arial';
-    let pctA = Math.round((nBlue / TOTAL_PARTICLES) * 100);
-    let pctB = Math.round((nOrange / TOTAL_PARTICLES) * 100);
+    let pctA = totalCount > 0 ? Math.round((nBlue / totalCount) * 100) : 0;
+    let pctB = totalCount > 0 ? Math.round((nOrange / totalCount) * 100) : 0;
     ctx.fillStyle = '#1e64dc'; ctx.fillText(`A: ${pctA}%`, (bar_p1.x1 + bar_p1.x2) / 2, 20);
     ctx.fillStyle = '#f08214'; ctx.fillText(`B: ${pctB}%`, (bar_p2.x1 + bar_p2.x2) / 2, 20);
   }
