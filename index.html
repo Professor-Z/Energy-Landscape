@@ -1,13 +1,13 @@
 <!--
   Copyright 2026 Zerubba Levi
-  This simulation is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).[cite: 1]
+  This simulation is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).
   
   License Restrictions Summary:
-  - Attribution: You must give appropriate credit and provide a link to the license.[cite: 1]
-  - NonCommercial: You may not use the material for commercial purposes.[cite: 1]
-  - ShareAlike: If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.[cite: 1]
+  - Attribution: You must give appropriate credit and provide a link to the license.
+  - NonCommercial: You may not use the material for commercial purposes.
+  - ShareAlike: If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
   
-  To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/[cite: 1]
+  To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/4.0/
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -64,15 +64,15 @@
     <div style="padding: 20px; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; gap: 12px;">
       <div>
         <strong>Potential Energy Landscape Simulation</strong><br>
-        Created by <strong>Zerubba Levi</strong> for organic chemistry education[cite: 1].
+        Created by <strong>Zerubba Levi</strong> for organic chemistry education.
       </div>
       <div style="background: #f0f2f5; padding: 10px 12px; border-radius: 6px; font-size: 13px;">
-        <strong>License:</strong> Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)[cite: 1]<br>
-        Other professors and educators are free to use, share, and adapt this simulation for non-commercial educational purposes, provided full attribution is given and modified versions share this same license[cite: 1].
+        <strong>License:</strong> Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)<br>
+        Other professors and educators are free to use, share, and adapt this simulation for non-commercial educational purposes, provided full attribution is given and modified versions share this same license.
       </div>
       <div>
         <strong>Feedback & Revisions:</strong><br>
-        Found a bug or have a suggestion for improving this simulation? Reach out with suggested revisions and feedback at <a href="mailto:zelevi@cabrillo.edu" style="color: #1e82f0; font-weight: bold; text-decoration: none;">zelevi@cabrillo.edu</a>[cite: 1].
+        Found a bug or have a suggestion for improving this simulation? Reach out with suggested revisions and feedback at <a href="mailto:zelevi@cabrillo.edu" style="color: #1e82f0; font-weight: bold; text-decoration: none;">zelevi@cabrillo.edu</a>.
       </div>
     </div>
     <div style="background: #f9f9f9; padding: 12px 20px; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end;">
@@ -141,7 +141,7 @@ class BarControl {
     } else if (type === 'up') {
       this.grabbed = false;
     } else if (type === 'move' && this.grabbed) {
-      this.y = Math.max(this.min_y, Math.min(this.max_y, my));
+      this.y = Math.max(this.min_y, Math.max(0, Math.min(this.max_y, my)));
       return true;
     }
     return false;
@@ -172,7 +172,7 @@ class PeakControl {
     } else if (type === 'up') {
       this.grabbed = false;
     } else if (type === 'move' && this.grabbed) {
-      this.y = Math.max(this.min_y, Math.min(this.max_y, my));
+      this.y = Math.max(this.min_y, Math.max(0, Math.min(this.max_y, my)));
       return true;
     }
     return false;
@@ -377,7 +377,6 @@ class CollapsibleParticleSlider {
       ctx.globalAlpha = tabAlpha;
       ctx.fill(); ctx.stroke();
 
-      // Font size matched to dropdown font (15px bold Arial)
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 15px Arial';
       ctx.textAlign = 'center';
@@ -481,6 +480,46 @@ class Dropdown {
         ctx.fillText(this.options[i], this.x + 12, optY + this.h / 2);
       }
     }
+    ctx.restore();
+  }
+}
+
+class Checkbox {
+  constructor(x, y, label, checked = false) {
+    this.x = x; this.y = y; this.w = 20; this.h = 20;
+    this.label = label; this.checked = checked;
+  }
+  handleEvent(type, mx, my) {
+    if (type === 'down') {
+      if (mx >= this.x && mx <= this.x + this.w + 170 && my >= this.y - 6 && my <= this.y + this.h + 6) {
+        this.checked = !this.checked;
+        return { handled: true, changed: true };
+      }
+    }
+    return { handled: false, changed: false };
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#505a6e';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(this.x, this.y, this.w, this.h, 4);
+    ctx.fill(); ctx.stroke();
+
+    if (this.checked) {
+      ctx.fillStyle = '#1e64dc';
+      ctx.font = 'bold 15px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('✓', this.x + this.w / 2, this.y + this.h / 2);
+    }
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 15px Arial';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.label, this.x + this.w + 10, this.y + this.h / 2);
     ctx.restore();
   }
 }
@@ -774,7 +813,7 @@ const WIDTH = 1100, HEIGHT = 820;
 const landscape = new PotentialLandscape(WIDTH, HEIGHT);
 const bar_p1 = new BarControl(WIDTH * 0.054, WIDTH * 0.1636, HEIGHT * 0.512, '#1e82f0', 'A Bar');
 const bar_react = new BarControl(WIDTH * 0.445, WIDTH * 0.554, HEIGHT * 0.414, '#1eb432', 'Reactants Bar');
-const bar_p2 = new BarControl(WIDTH * 0.836, WIDTH * 0.945, HEIGHT * 0.951, '#f08214', 'B Bar');
+const bar_p2 = new BarControl(WIDTH * 0.836, WIDTH * 0.945, HEIGHT * 0.890, '#f08214', 'B Bar');
 const peak_ts1 = new PeakControl(landscape.x_ts1_peak, HEIGHT * 0.268);
 const peak_ts2 = new PeakControl(landscape.x_ts2_peak, HEIGHT * 0.134);
 
@@ -786,6 +825,10 @@ const modes = [
   '2-Step Mechanism'
 ];
 const dropdown = new Dropdown(65, HEIGHT - 52, 310, 40, modes, 0);
+const hammondCheckbox = new Checkbox(65, HEIGHT - 92, "Hammond's Postulate", false);
+
+let hammondOffset1 = peak_ts1.y - bar_p1.y;
+let hammondOffset2 = peak_ts2.y - bar_p2.y;
 
 const s_energy = new ThermometerSlider(26, 80, 16, 640, 337.5);
 const s_particles = new CollapsibleParticleSlider(WIDTH, 80, 16, 640, 100, 2000, 1000);
@@ -807,18 +850,23 @@ function spawnParticles(modeName) {
 
 function applyModeLandscape(modeName, h) {
   if (modeName === 'Thermodynamic vs Kinetic Product') {
-    bar_p1.y = h * 0.512; bar_react.y = h * 0.414; bar_p2.y = h * 0.951;
+    bar_p1.y = h * 0.512; bar_react.y = h * 0.414; bar_p2.y = h * 0.890;
     peak_ts1.y = h * 0.268; peak_ts2.y = h * 0.134;
   } else if (modeName === 'Intermediate Stability & Reaction Rates') {
-    bar_p1.y = h * 0.700; bar_react.y = h * 0.950; bar_p2.y = h * 0.380;
-    peak_ts1.y = h * 0.520; peak_ts2.y = h * 0.120;
+    bar_p1.y = h * 0.560; bar_react.y = h * 0.770; bar_p2.y = h * 0.450;
+    peak_ts1.y = h * 0.360; peak_ts2.y = h * 0.230;
   } else if (modeName === '2-Step Mechanism') {
     bar_p1.y = h * 0.700; bar_react.y = h * 0.400; bar_p2.y = h * 0.980;
     peak_ts1.y = h * 0.120; peak_ts2.y = h * 0.300;
   }
+  hammondOffset1 = peak_ts1.y - bar_p1.y;
+  hammondOffset2 = peak_ts2.y - bar_p2.y;
 }
 
+applyModeLandscape(modes[0], HEIGHT);
 spawnParticles(modes[0]);
+hammondOffset1 = peak_ts1.y - bar_p1.y;
+hammondOffset2 = peak_ts2.y - bar_p2.y;
 
 let paused = false;
 let simTime = 0.0, dataSampleTimer = 0.0;
@@ -855,6 +903,18 @@ function handlePointer(type, e) {
     return;
   }
 
+  // Checkbox Interception (only in Intermediate Stability & Reaction Rates mode)
+  if (curMode === 'Intermediate Stability & Reaction Rates') {
+    let chkRes = hammondCheckbox.handleEvent(type, mx, my);
+    if (chkRes.handled) {
+      if (chkRes.changed && hammondCheckbox.checked) {
+        hammondOffset1 = peak_ts1.y - bar_p1.y;
+        hammondOffset2 = peak_ts2.y - bar_p2.y;
+      }
+      return;
+    }
+  }
+
   // 2. Graph Window Interception
   if (graph_window.handleEvent(type, mx, my)) return;
 
@@ -872,8 +932,29 @@ function handlePointer(type, e) {
     graphDataHistory = [[0.0, initB, initG, 0.0]];
   }
 
-  for (let b of bars) b.handleEvent(type, mx, my);
-  for (let pk of peaks) pk.handleEvent(type, mx, my);
+  for (let b of bars) {
+    if (!hammondCheckbox.checked || curMode !== 'Intermediate Stability & Reaction Rates') {
+      b.handleEvent(type, mx, my);
+    } else {
+      let oldY = b.y;
+      if (b.handleEvent(type, mx, my)) {
+        let dy = b.y - oldY;
+        if (b === bar_p1) {
+          peak_ts1.y += dy;
+        } else if (b === bar_p2) {
+          peak_ts2.y += dy;
+        } else if (b === bar_react) {
+          bar_react.y = Math.max(0, Math.min(HEIGHT, b.y));
+        }
+      }
+    }
+  }
+
+  for (let pk of peaks) {
+    if (!hammondCheckbox.checked || curMode !== 'Intermediate Stability & Reaction Rates') {
+      pk.handleEvent(type, mx, my);
+    }
+  }
 
   if (type === 'down') {
     let btnY = HEIGHT - 48, btnW = 100, gap = 15;
@@ -909,18 +990,24 @@ function loop(now) {
   lastTime = now;
   let curMode = dropdown.options[dropdown.selectedIndex];
 
+  // Apply Hammond's Postulate 1:1 direct scaling if checked
+  if (curMode === 'Intermediate Stability & Reaction Rates' && hammondCheckbox.checked) {
+    peak_ts1.y = bar_p1.y + hammondOffset1;
+    peak_ts2.y = bar_p2.y + hammondOffset2;
+  }
+
   // Constrain Peak & Bar Energies so peaks stay above basins
   peak_ts1.max_y = Math.min(bar_p1.y, bar_react.y);
   peak_ts2.max_y = Math.min(bar_react.y, bar_p2.y);
-  peak_ts1.y = Math.min(peak_ts1.y, peak_ts1.max_y);
-  peak_ts2.y = Math.min(peak_ts2.y, peak_ts2.max_y);
+  peak_ts1.y = Math.max(0, Math.min(peak_ts1.y, peak_ts1.max_y));
+  peak_ts2.y = Math.max(0, Math.min(peak_ts2.y, peak_ts2.max_y));
 
   bar_p1.min_y = peak_ts1.y;
   bar_p2.min_y = peak_ts2.y;
   bar_react.min_y = Math.max(peak_ts1.y, peak_ts2.y);
-  bar_p1.y = Math.max(bar_p1.y, bar_p1.min_y);
-  bar_p2.y = Math.max(bar_p2.y, bar_p2.min_y);
-  bar_react.y = Math.max(bar_react.y, bar_react.min_y);
+  bar_p1.y = Math.max(0, Math.max(bar_p1.y, bar_p1.min_y));
+  bar_p2.y = Math.max(0, Math.max(bar_p2.y, bar_p2.min_y));
+  bar_react.y = Math.max(0, Math.max(bar_react.y, bar_react.min_y));
 
   if (!paused) {
     simTime += dt;
@@ -1000,6 +1087,9 @@ function loop(now) {
 
   graph_window.draw(ctx, graphDataHistory, curMode === '2-Step Mechanism');
   dropdown.draw(ctx, lastMx, lastMy);
+  if (curMode === 'Intermediate Stability & Reaction Rates') {
+    hammondCheckbox.draw(ctx);
+  }
 
   requestAnimationFrame(loop);
 }
